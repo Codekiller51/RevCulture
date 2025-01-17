@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { signIn, signUp } from '../../lib/firebase';
+import { supabase } from '../../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -24,10 +24,42 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, username);
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username,
+            },
+          },
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (authData.user) {
+          // Create profile record
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: authData.user.id,
+                username,
+                full_name: username,
+                avatar_url: null,
+              },
+            ]);
+
+          if (profileError) throw profileError;
+        }
       } else {
-        await signIn(email, password);
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) throw signInError;
       }
+
       onClose();
     } catch (error: any) {
       setError(error.message);

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Compass, Calendar, Bell, User, LogOut } from 'lucide-react';
-import { logout } from '../lib/firebase';
-import type { User as FirebaseUser } from 'firebase/auth';
+import { Home, Compass, Calendar, Bell, User as UserIcon, LogOut } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 type Page = 'feed' | 'explore' | 'events' | 'profile' | 'userProfile' | 'notifications';
 
@@ -30,13 +30,13 @@ interface NavigationProps {
   currentPage: Page;
   onPageChange: (page: Page) => void;
   onAuthAction: () => void;
-  user: FirebaseUser | null;
+  user: User | null;
 }
 
 export function Navigation({ currentPage, onPageChange, onAuthAction, user }: NavigationProps) {
   const handleLogout = async () => {
     try {
-      await logout();
+      await supabase.auth.signOut();
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -76,7 +76,7 @@ export function Navigation({ currentPage, onPageChange, onAuthAction, user }: Na
         {user ? (
           <>
             <NavItem
-              icon={<User size={24} />}
+              icon={<UserIcon size={24} />}
               label="Profile"
               active={currentPage === 'userProfile'}
               onClick={() => onPageChange('userProfile')}
@@ -89,7 +89,7 @@ export function Navigation({ currentPage, onPageChange, onAuthAction, user }: Na
           </>
         ) : (
           <NavItem
-            icon={<User size={24} />}
+            icon={<UserIcon size={24} />}
             label="Sign In"
             onClick={onAuthAction}
           />
