@@ -12,17 +12,12 @@ if (!supabaseKey) {
   throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
 }
 
-try {
-  export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  });
-} catch (error) {
-  console.error('Error initializing Supabase client:', error);
-  throw new Error('Failed to initialize Supabase client. Please check your configuration.');
-}
+export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 
 export type { User } from '@supabase/supabase-js';
