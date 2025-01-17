@@ -23,6 +23,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setLoading(true);
 
     try {
+      if (!email || !password || (isSignUp && !username)) {
+        throw new Error('Please fill in all fields');
+      }
+
       if (isSignUp) {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -37,7 +41,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         if (signUpError) throw signUpError;
 
         if (authData.user) {
-          // Create profile record
           const { error: profileError } = await supabase
             .from('profiles')
             .insert([
@@ -45,7 +48,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 id: authData.user.id,
                 username,
                 full_name: username,
-                avatar_url: null,
               },
             ]);
 
@@ -62,7 +64,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       onClose();
     } catch (error: any) {
-      setError(error.message);
+      console.error('Auth error:', error);
+      setError(error.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
