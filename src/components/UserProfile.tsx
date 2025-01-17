@@ -1,37 +1,26 @@
-import React, { useState } from 'react';
-import { MapPin, Calendar, Settings, Edit3, Grid, List, Share2, Users, Trophy, Car, Camera } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MapPin, Calendar, Settings, Edit3, Grid, List, Share2, Users, Trophy, Car, Camera, Save } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import type { User, Car as CarType, Post } from '../types';
 
-const SAMPLE_USER: User = {
-  id: '1',
-  username: 'alexsmith',
-  name: 'Alex Smith',
-  avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200',
-  bio: 'Car enthusiast | Track day addict | Automotive photographer\nBased in Los Angeles, CA',
-  cars: [
-    {
-      id: '1',
-      make: 'Porsche',
-      model: '911 GT3',
-      year: 2022,
-      photos: ['https://images.unsplash.com/photo-1614200187524-dc4b892acf16?auto=format&fit=crop&q=80&w=800'],
-      description: 'Track-focused beast with a naturally aspirated flat-six.'
-    },
-    {
-      id: '2',
-      make: 'BMW',
-      model: 'M4 Competition',
-      year: 2023,
-      photos: ['https://images.unsplash.com/photo-1603386329225-868f9b1ee6c9?auto=format&fit=crop&q=80&w=800'],
-      description: 'Daily driver with serious performance credentials.'
-    }
-  ]
-};
+interface Profile {
+  username: string;
+  full_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  location: string | null;
+}
 
 const SAMPLE_POSTS: Post[] = [
   {
     id: '1',
-    user: SAMPLE_USER,
+    user: {
+      id: '1',
+      username: 'alexsmith',
+      name: 'Alex Smith',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200'
+    },
     images: ['https://images.unsplash.com/photo-1626668893632-6f3a4466d22f?auto=format&fit=crop&q=80&w=800'],
     caption: 'Perfect day for some canyon carving! 🏁',
     likes: 423,
@@ -40,7 +29,12 @@ const SAMPLE_POSTS: Post[] = [
   },
   {
     id: '2',
-    user: SAMPLE_USER,
+    user: {
+      id: '1',
+      username: 'alexsmith',
+      name: 'Alex Smith',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200'
+    },
     images: ['https://images.unsplash.com/photo-1544829099-b9a0c07fad1a?auto=format&fit=crop&q=80&w=800'],
     caption: 'New wheels installed! What do you think? 🔧',
     likes: 567,
@@ -57,7 +51,69 @@ const STATS = [
 ];
 
 export function UserProfile() {
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isEditing, setIsEditing] = useState(false);
+  const [profile, setProfile] = useState<Profile>({
+    username: '',
+    full_name: '',
+    avatar_url: null,
+    bio: '',
+    location: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      if (!user?.id) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setProfile(data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      setError(error.message);
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profile.full_name,
+          bio: profile.bio,
+          location: profile.location,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="md:ml-64 min-h-screen bg-gray-50">
@@ -85,8 +141,8 @@ export function UserProfile() {
               <div className="relative mb-4 sm:mb-0">
                 <div className="relative inline-block">
                   <img
-                    src={SAMPLE_USER.avatar}
-                    alt={SAMPLE_USER.name}
+                    src={profile.avatar_url || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200"}
+                    alt={profile.full_name}
                     className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover border-4 border-white shadow-lg"
                   />
                   <button className="absolute bottom-2 right-2 p-2 bg-white/90 backdrop-blur-sm rounded-xl hover:bg-white transition-colors">
@@ -97,35 +153,97 @@ export function UserProfile() {
 
               {/* Name and Actions */}
               <div className="flex flex-col items-center sm:items-start flex-grow">
-                <div className="text-center sm:text-left mb-4">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{SAMPLE_USER.name}</h1>
-                  <p className="text-gray-600">@{SAMPLE_USER.username}</p>
-                </div>
-                <div className="flex gap-3 mb-6">
-                  <button className="px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
-                    Edit Profile
-                  </button>
-                  <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                    <Settings size={20} className="text-gray-600" />
-                  </button>
-                </div>
+                {isEditing ? (
+                  <div className="space-y-4 w-full max-w-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.full_name || ''}
+                        onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Bio
+                      </label>
+                      <textarea
+                        value={profile.bio || ''}
+                        onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.location || ''}
+                        onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleProfileUpdate}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50"
+                      >
+                        <Save size={20} />
+                        Save Changes
+                      </button>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-center sm:text-left mb-4">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{profile.full_name || 'Add your name'}</h1>
+                      <p className="text-gray-600">@{profile.username}</p>
+                    </div>
+                    <div className="flex gap-3 mb-6">
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
+                      >
+                        <Edit3 size={20} />
+                        Edit Profile
+                      </button>
+                      <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                        <Settings size={20} className="text-gray-600" />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Bio and Location */}
-            <div className="mt-6 text-center sm:text-left">
-              <p className="text-gray-600 whitespace-pre-line mb-4">{SAMPLE_USER.bio}</p>
-              <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <MapPin size={16} />
-                  <span>Los Angeles, CA</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar size={16} />
-                  <span>Joined March 2023</span>
+            {!isEditing && (
+              <div className="mt-6 text-center sm:text-left">
+                <p className="text-gray-600 whitespace-pre-line mb-4">{profile.bio || 'Add a bio to tell your story'}</p>
+                <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <MapPin size={16} />
+                    <span>{profile.location || 'Add your location'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Calendar size={16} />
+                    <span>Joined {new Date(user?.created_at || '').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
@@ -142,34 +260,6 @@ export function UserProfile() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Cars */}
-        <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-6 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Your Garage</h2>
-            <button className="text-blue-500 hover:text-blue-600 transition-colors font-medium">
-              Add Vehicle
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {SAMPLE_USER.cars?.map((car) => (
-              <div key={car.id} className="group relative aspect-[16/9] rounded-xl overflow-hidden">
-                <img
-                  src={car.photos[0]}
-                  alt={`${car.year} ${car.make} ${car.model}`}
-                  className="w-full h-full object-cover transform transition-transform group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="text-lg font-bold text-white">
-                    {car.year} {car.make} {car.model}
-                  </h3>
-                  <p className="text-sm text-gray-200">{car.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Posts */}
         <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-6">
           <div className="flex items-center justify-between mb-6">

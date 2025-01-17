@@ -19,20 +19,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUser(session.user);
+        // Ensure profile exists
+        createProfileIfNotExists(session.user);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        // Ensure profile exists
+        await createProfileIfNotExists(session.user);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const createProfileIfNotExists = async (user: User) => {
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select()
+      .eq('id', user.id)
+      .single();
+
+    if (!existingProfile) {
+      const { error } = await supabase.from('profiles').insert([
+        {
+          id: user.id,
+          username: user.email,
+          full_name: user.user_metadata?.full_name || null,
+        },
+      ]);
+
+      if (error) {
+        console.error('Error creating profile:', error);
+      }
+    }
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

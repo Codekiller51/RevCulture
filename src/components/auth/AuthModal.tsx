@@ -47,7 +47,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               {
                 id: authData.user.id,
                 username,
-                full_name: username,
+                full_name: '',
+                avatar_url: null,
+                bio: '',
+                location: '',
               },
             ]);
 
